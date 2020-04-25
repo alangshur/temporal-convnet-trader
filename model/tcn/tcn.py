@@ -7,7 +7,7 @@ import time
 class CausalConv1D(layers.Layer):
     def __init__(self, name, filter_count, kernel_size, dilation_rate,
                  activation_func=tf.nn.relu,
-                 dropout_rate=0.1,
+                 dropout_rate=0.2,
                  **kwargs):
 
         # initialize abstract layer
@@ -59,10 +59,11 @@ class ResidualBlock(layers.Layer):
     def __init__(self, name, filter_count, kernel_size, dilation_rate,
                  activation_func=tf.nn.relu,
                  res_activation_func=tf.nn.relu,
-                 dropout_rate=0.1,
+                 dropout_rate=0.2,
                  **kwargs):
 
         # initialize abstract layer
+        self.filter_count = filter_count
         super(ResidualBlock, self).__init__(
             name=name,
             **kwargs
@@ -113,10 +114,7 @@ class ResidualBlock(layers.Layer):
 
 
 class DenseClassifier(layers.Layer):
-    def __init__(self, name, inter_unit_count, output_unit_count,
-                 activation_func=tf.nn.relu,
-                 dropout_rate=0.1,
-                 **kwargs):
+    def __init__(self, name, output_n, **kwargs):
 
         # initialize abstract layer
         super(DenseClassifier, self).__init__(
@@ -127,26 +125,11 @@ class DenseClassifier(layers.Layer):
         # add flattening layer
         self.flatten_layer = layers.Flatten()
 
-        # add dense intermediate layer
-        self.dense_inter_layer = layers.Dense(
-            inter_unit_count,
-            activation=activation_func,
-
-            use_bias=True,
-            kernel_initializer='glorot_uniform',
-            bias_initializer='zeros',
-            kernel_regularizer=None,
-            bias_regularizer=None,
-            activity_regularizer=None,
-            kernel_constraint=None,
-            bias_constraint=None
-        )
-
         # add dense output layer
-        self.dense_output_layer = layers.Dense(
-            output_unit_count,
-            activation=activation_func,
+        self.output_layer = layers.Dense(
+            output_n,
 
+            activation=None,
             use_bias=True,
             kernel_initializer='glorot_uniform',
             bias_initializer='zeros',
@@ -155,25 +138,18 @@ class DenseClassifier(layers.Layer):
             activity_regularizer=None,
             kernel_constraint=None,
             bias_constraint=None
-        )
-
-        # add dropout layer
-        self.do_layer = layers.Dropout(
-            dropout_rate
         )
 
     def call(self, inputs, training=True):
 
         # execute pipeline
         flat_inputs = self.flatten_layer(inputs)
-        act_1 = self.dense_inter_layer(flat_inputs)
-        act_do_1 = self.do_layer(act_1, training=training)
-        act_2 = self.dense_output_layer(act_do_1)
-        return act_2
+        act = self.output_layer(flat_inputs)
+        return act
 
 
 class TemporalConvNet(tf.keras.Model):
-    def __init__(self, name, block_config, cf_config, **kwargs):
+    def __init__(self, name, block_config, output_n, **kwargs):
 
         # initialize abstract model
         build_start_ms = time.time() * 1000
@@ -204,17 +180,9 @@ class TemporalConvNet(tf.keras.Model):
                 dropout_rate=dropout_rate
             ))
 
-        # fetch dense config
-        inter_unit_count = cf_config['inter_unit_count']
-        output_unit_count = cf_config['output_unit_count']
-        activation_func = cf_config['activation_func']
-        dropout_rate = cf_config['dropout_rate']
-
         # add dense output
         self.output_layer = DenseClassifier(
-            'dense-out', inter_unit_count, output_unit_count,
-            activation_func=activation_func,
-            dropout_rate=dropout_rate
+            'dense-out', output_n
         )
 
         # terminate initialization

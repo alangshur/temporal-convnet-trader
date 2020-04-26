@@ -152,8 +152,6 @@ class TemporalConvNet(tf.keras.Model):
     def __init__(self, name, block_config, output_n, **kwargs):
 
         # initialize abstract model
-        build_start_ms = time.time() * 1000
-        print(name + ': Building network... ', end='')
         super(TemporalConvNet, self).__init__(
             name=name,
             **kwargs
@@ -185,15 +183,11 @@ class TemporalConvNet(tf.keras.Model):
             'dense-out', output_n
         )
 
-        # terminate initialization
-        build_finish_ms = time.time() * 1000
-        print('Took ' + str(build_finish_ms - build_start_ms) + 'ms')
-
     def call(self, inputs, training=True):
 
         # execute pipeline
         prev_act = inputs
-        for block in self.blocks:
+        for block in self.blocks: 
             prev_act = block(prev_act, training=training)
         y = self.output_layer(prev_act, training=training)
         return y

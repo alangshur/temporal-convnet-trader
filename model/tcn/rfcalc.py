@@ -11,6 +11,7 @@ def calculateReceptiveField(block_config):
 
     return rf
 
+
 if __name__ == '__main__':
     
     # define network config

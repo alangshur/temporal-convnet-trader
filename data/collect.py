@@ -106,7 +106,7 @@ def write_data(writer, date, results):
 def collect_data():
     '''Collect, verify, and write all market data in three year period.'''
 
-    with open('raw/{}.csv'.format(TICKER), 'w+') as raw_file:
+    with open('raw.nosync/{}.csv'.format(TICKER), 'w+') as raw_file:
         file_writer = csv.writer(raw_file)
 
         # loop through years

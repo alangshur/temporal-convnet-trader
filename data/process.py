@@ -10,10 +10,12 @@ RETURN_MARGIN_5 = 0.00025
 RETURN_MARGIN_15 = 0.00075
 RETURN_MARGIN_30 = 0.0015
 RETURN_MARGIN_60 = 0.003
+DPS_PER_FILE = 5
 
 # data constants
 BARS_PER_DAY = 330
 BARS_DAY_OFFSET = 60
+MAX_BARS_PER_DP = 329
 HOUR_MAX = 13
 HOUR_MIN = 8
 MINUTE_MAX = 59
@@ -92,6 +94,7 @@ def convert_row_dtype(row_s, dtype=float):
     ds = [row_s[0]]
     return ds + [dtype(val) for val in row_s[1:]]
 
+
 def preload_data():
     '''Pre-load raw per-day data from CSV.'''
 
@@ -118,14 +121,12 @@ def process_data(raw_data):
     '''Process raw data and write each datapoint.'''
 
     # loop over raw days
+    cur_x, cur_y = [], []
+    file_count = 0
     day_count = 0
     for day_data in raw_data:
-        print('Progress: [%s%s] %d %%' % get_prog_bar(
-            day_count, len(raw_data)), end='\r')
-
-        # open new file
-        f = open('proc.nosync/{}-{}.csv'.format(TICKER, day_count), 'w+')
-        writer = csv.writer(f)
+        # print('Progress: [%s%s] %d %%' % get_prog_bar(
+            # day_count, len(raw_data)), end='\r')
 
         # loop over each dp end
         for end in range(BARS_DAY_OFFSET + 1, BARS_PER_DAY + 1):
@@ -141,7 +142,7 @@ def process_data(raw_data):
             last_row = day_data[0]
             for val in range(1, end):
                 row = day_data[val]
-                dp += [
+                dp.append([
                     normalize_time(row[1], HOUR_MIN, HOUR_MAX),  # normalized hour
                     normalize_time(row[2], MINUTE_MIN, MINUTE_MAX),  # normalized minute
                     normalize_data(row[3], 'objects', min_max),  # normalized objects
@@ -158,21 +159,36 @@ def process_data(raw_data):
                     (row[8] - last_row[7]) / last_row[7],  # high return
                     normalize_data(row[9], 'low', min_max),  # normalized low
                     (row[9] - last_row[7]) / last_row[7],  # low return
-                ]
+                ])
                 last_row = row
             
-            # add datapoint labels
-            dp += [
+            # pad inputs
+            dp_arr = np.array(dp)
+            dp_pad = np.pad(
+                dp_arr, 
+                ((MAX_BARS_PER_DP - len(dp), 0), (0, 0)), 
+                'constant'
+            )
+
+            # add inputs and labels
+            cur_x.append(dp_pad)
+            cur_y.append(np.array([
                 int(((last_row[10] - last_row[7]) / last_row[7]) >= RETURN_MARGIN_5),  # 5-bar return label
                 int(((last_row[11] - last_row[7]) / last_row[7]) >= RETURN_MARGIN_15),  # 15-bar return label
                 int(((last_row[12] - last_row[7]) / last_row[7]) >= RETURN_MARGIN_30),  # 30-bar return label
                 int(((last_row[13] - last_row[7]) / last_row[7]) >= RETURN_MARGIN_60),  # 60-bar return label
-            ]
-            writer.writerow(dp)
+            ]))
 
-        # change files
-        f.close()
+            # save array as numpy file 
+            if len(cur_x) >= DPS_PER_FILE:
+                x, y = np.array(cur_x), np.array(cur_y)
+                np.savez('proc.nosync/{}-{}.npz'.format(TICKER, file_count), x=x, y=y)
+                file_count += 1
+                cur_x, cur_y = [], []
+
+        # increment day
         day_count += 1
+
 
 if __name__ == '__main__':
 

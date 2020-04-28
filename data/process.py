@@ -125,8 +125,8 @@ def process_data(raw_data):
     file_count = 0
     day_count = 0
     for day_data in raw_data:
-        # print('Progress: [%s%s] %d %%' % get_prog_bar(
-            # day_count, len(raw_data)), end='\r')
+        print('Progress: [%s%s] %d %%' % get_prog_bar(
+            day_count, len(raw_data)), end='\r')
 
         # loop over each dp end
         for end in range(BARS_DAY_OFFSET + 1, BARS_PER_DAY + 1):

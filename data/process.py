@@ -6,15 +6,14 @@ import csv
 
 # customizable presets
 TICKER = 'AAPL'
-DPS_DAY_START_OFFSET = 60
 RETURN_MARGIN_5 = 0.00025
 RETURN_MARGIN_15 = 0.00075
 RETURN_MARGIN_30 = 0.0015
 RETURN_MARGIN_60 = 0.003
 
 # data constants
-MINUTE_BARS_PER_DAY = 330
-MINUTE_BARS_DAY_OFFSET = 60
+BARS_PER_DAY = 330
+BARS_DAY_OFFSET = 60
 HOUR_MAX = 13
 HOUR_MIN = 8
 MINUTE_MAX = 59
@@ -22,6 +21,8 @@ MINUTE_MIN = 0
 
 
 def get_prog_bar(current, total, barLength=20):
+    '''Compute data for progress bar.'''
+
     percent = float(current) / total * 100
     arrow   = '-' * int(percent / 100 * barLength - 1) + '>'
     spaces  = ' ' * (barLength - len(arrow))
@@ -101,7 +102,7 @@ def preload_data():
         # split data by day
         while True:
             day_data = []
-            for i in range(MINUTE_BARS_PER_DAY):
+            for i in range(BARS_PER_DAY):
                 try: 
                     row_s = next(reader)
                     row = convert_row_dtype(row_s)
@@ -116,67 +117,62 @@ def preload_data():
 def process_data(raw_data):
     '''Process raw data and write each datapoint.'''
 
-    with open('proc.nosync/{}.csv'.format(TICKER), 'w+') as raw_file:
-        writer = csv.writer(raw_file)
+    # loop over raw days
+    day_count = 0
+    for day_data in raw_data:
+        print('Progress: [%s%s] %d %%' % get_prog_bar(
+            day_count, len(raw_data)), end='\r')
 
-        # loop over raw days
-        day_count = 0
-        dp_count = 0
-        for day_data in raw_data:
-            print('Progress: [%s%s] %d %%' % get_prog_bar(
-                day_count, len(raw_data)), end='\r')
-            dps = []
+        # open new file
+        f = open('proc.nosync/{}-{}.csv'.format(TICKER, day_count), 'w+')
+        writer = csv.writer(f)
 
-            # loop over each dp end
-            for end in range(DPS_DAY_START_OFFSET, MINUTE_BARS_PER_DAY):
+        # loop over each dp end
+        for end in range(BARS_DAY_OFFSET + 1, BARS_PER_DAY + 1):
+            dp = []
 
-                # collect min/max
-                min_max = get_new_min_max(day_data[0])
-                for val in range(1, end):
-                    row = day_data[val]
-                    min_max = update_min_max(min_max, row)
+            # collect min/max
+            min_max = get_new_min_max(day_data[0])
+            for val in range(1, end):
+                row = day_data[val]
+                min_max = update_min_max(min_max, row)
 
-                # build datapoint
-                last_row = day_data[0]
-                for val in range(1, end):
-                    row = day_data[val]
+            # build datapoint
+            last_row = day_data[0]
+            for val in range(1, end):
+                row = day_data[val]
+                dp += [
+                    normalize_time(row[1], HOUR_MIN, HOUR_MAX),  # normalized hour
+                    normalize_time(row[2], MINUTE_MIN, MINUTE_MAX),  # normalized minute
+                    normalize_data(row[3], 'objects', min_max),  # normalized objects
+                    (row[3] - last_row[3]) / last_row[3],  # objects return
+                    normalize_data(row[4], 'volume', min_max),  # normalized volume
+                    (row[4] - last_row[4]) / last_row[4],  # volume return
+                    normalize_data(row[5], 'vwap', min_max),  # normalized vwap
+                    (row[5] - last_row[5]) / last_row[5],  # vwap return
+                    normalize_data(row[6], 'open', min_max),  # normalized open
+                    (row[6] - last_row[7]) / last_row[7],  # open return
+                    normalize_data(row[7], 'close', min_max),  # normalized close
+                    (row[7] - last_row[7]) / last_row[7],  # close return
+                    normalize_data(row[8], 'high', min_max),  # normalized high
+                    (row[8] - last_row[7]) / last_row[7],  # high return
+                    normalize_data(row[9], 'low', min_max),  # normalized low
+                    (row[9] - last_row[7]) / last_row[7],  # low return
+                ]
+                last_row = row
+            
+            # add datapoint labels
+            dp += [
+                int(((last_row[10] - last_row[7]) / last_row[7]) >= RETURN_MARGIN_5),  # 5-bar return label
+                int(((last_row[11] - last_row[7]) / last_row[7]) >= RETURN_MARGIN_15),  # 15-bar return label
+                int(((last_row[12] - last_row[7]) / last_row[7]) >= RETURN_MARGIN_30),  # 30-bar return label
+                int(((last_row[13] - last_row[7]) / last_row[7]) >= RETURN_MARGIN_60),  # 60-bar return label
+            ]
+            writer.writerow(dp)
 
-                    data = [
-                        dp_count, # datapoint number
-
-                        normalize_time(row[1], HOUR_MIN, HOUR_MAX),  # normalized hour
-                        normalize_time(row[2], MINUTE_MIN, MINUTE_MAX),  # normalized minute
-                        normalize_data(row[3], 'objects', min_max),  # normalized objects
-                        (row[3] - last_row[3]) / last_row[3],  # objects return
-                        normalize_data(row[4], 'volume', min_max),  # normalized volume
-                        (row[4] - last_row[4]) / last_row[4],  # volume return
-                        normalize_data(row[5], 'vwap', min_max),  # normalized vwap
-                        (row[5] - last_row[5]) / last_row[5],  # vwap return
-                        normalize_data(row[6], 'open', min_max),  # normalized open
-                        (row[6] - last_row[7]) / last_row[7],  # open return
-                        normalize_data(row[7], 'close', min_max),  # normalized close
-                        (row[7] - last_row[7]) / last_row[7],  # close return
-                        normalize_data(row[8], 'high', min_max),  # normalized high
-                        (row[8] - last_row[7]) / last_row[7],  # high return
-                        normalize_data(row[9], 'low', min_max),  # normalized low
-                        (row[9] - last_row[7]) / last_row[7],  # low return
-
-                        int(((row[10] - row[7]) / row[7]) >= RETURN_MARGIN_5),  # 5-bar return label
-                        int(((row[11] - row[7]) / row[7]) >= RETURN_MARGIN_15),  # 15-bar return label
-                        int(((row[12] - row[7]) / row[7]) >= RETURN_MARGIN_30),  # 30-bar return label
-                        int(((row[13] - row[7]) / row[7]) >= RETURN_MARGIN_60),  # 60-bar return label
-                    ]
-
-                    # add datapoint part
-                    last_row = row
-                    dps.append(data)
-                
-                # increment datapoints
-                dp_count += 1
-
-            # bulk write datapoint
-            writer.writerows(dps)
-            day_count += 1
+        # change files
+        f.close()
+        day_count += 1
 
 if __name__ == '__main__':
 

@@ -1,4 +1,4 @@
-from tcn.tcn import TemporalConvNet
+from tcn.tcn1 import TemporalConvNet
 from tensorflow.keras.datasets import mnist
 import matplotlib.pyplot as plt
 import tensorflow as tf

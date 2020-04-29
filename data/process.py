@@ -31,61 +31,10 @@ def get_prog_bar(current, total, barLength=20):
     return arrow, spaces, percent
 
 
-def get_new_min_max(row):
-    '''Pre-fill new min/max states with initial row data.'''
-
-    return {
-        'max_objects': row[3],
-        'min_objects': row[3],
-        'max_volume': row[4],
-        'min_volume': row[4],
-        'max_vwap': row[5],
-        'min_vwap': row[5],
-        'max_open': row[6],
-        'min_open': row[6],
-        'max_close': row[7],
-        'min_close': row[7],
-        'max_high': row[8],
-        'min_high': row[8],
-        'max_low': row[9],
-        'min_low': row[9]
-    }
-
-
-def update_min_max(mm, row):
-    '''Update min/max states for new row data.'''
-
-    return {
-        'max_objects': mm['max_objects'] if mm['max_objects'] >= row[3] else row[3],
-        'min_objects': mm['min_objects'] if mm['min_objects'] <= row[3] else row[3],
-        'max_volume': mm['max_volume'] if mm['max_volume'] >= row[4] else row[4],
-        'min_volume': mm['min_volume'] if mm['min_volume'] <= row[4] else row[4],
-        'max_vwap': mm['max_vwap'] if mm['max_vwap'] >= row[5] else row[5],
-        'min_vwap': mm['min_vwap'] if mm['min_vwap'] <= row[5] else row[5],
-        'max_open': mm['max_open'] if mm['max_open'] >= row[6] else row[6],
-        'min_open': mm['min_open'] if mm['min_open'] <= row[6] else row[6],
-        'max_close': mm['max_close'] if mm['max_close'] >= row[7] else row[7],
-        'min_close': mm['min_close'] if mm['min_close'] <= row[7] else row[7],
-        'max_high': mm['max_high'] if mm['max_high'] >= row[8] else row[8],
-        'min_high': mm['min_high'] if mm['min_high'] <= row[8] else row[8],
-        'max_low': mm['max_low'] if mm['max_low'] >= row[9] else row[9],
-        'min_low': mm['min_low'] if mm['min_low'] <= row[9] else row[9]
-    }
-
-
 def normalize_time(val, min, max):
     '''Normalize time data to range [-1, 1].'''
 
     return 2 * (val - min) / (max - min) - 1
-
-
-def normalize_data(val, label, mm):
-    '''Normalize arbitrary data to range [-1, 1].'''
-
-    max = mm['max_' + label]
-    min = mm['min_' + label]
-    if max - min == 0: return 0.0
-    else: return 2 * (val - min) / (max - min) - 1
 
 
 def convert_row_dtype(row_s, dtype=float):
@@ -149,15 +98,10 @@ def process_data(raw_data):
                     (row[3] - last_row[3]) / last_row[3],  # objects return
                     normalize_data(row[4], 'volume', min_max),  # normalized volume
                     (row[4] - last_row[4]) / last_row[4],  # volume return
-                    normalize_data(row[5], 'vwap', min_max),  # normalized vwap
                     (row[5] - last_row[5]) / last_row[5],  # vwap return
-                    normalize_data(row[6], 'open', min_max),  # normalized open
                     (row[6] - last_row[7]) / last_row[7],  # open return
-                    normalize_data(row[7], 'close', min_max),  # normalized close
                     (row[7] - last_row[7]) / last_row[7],  # close return
-                    normalize_data(row[8], 'high', min_max),  # normalized high
                     (row[8] - last_row[7]) / last_row[7],  # high return
-                    normalize_data(row[9], 'low', min_max),  # normalized low
                     (row[9] - last_row[7]) / last_row[7],  # low return
                 ])
                 last_row = row

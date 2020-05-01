@@ -1,7 +1,6 @@
-from tcn.tcn1 import TemporalConvNet
+from tcn.tcn import TemporalConvNet
 from utils.seq import ProcessedSequence
 from utils.loss import MulticlassBinaryCrossEntropy
-# from utils.metric import FiveMinuteAccuracy
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np

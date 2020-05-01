@@ -3,45 +3,18 @@ import random
 import time
 import csv
 
-
 # customizable presets
-TICKER = 'AAPL'
-RETURN_MARGIN_5 = 0.00025
-RETURN_MARGIN_15 = 0.00075
-RETURN_MARGIN_30 = 0.0015
-RETURN_MARGIN_60 = 0.003
-DPS_PER_FILE = 5
+TICKER = 'GDX'
 
 # data constants
-BARS_PER_DAY = 330
-BARS_DAY_OFFSET = 60
-MAX_BARS_PER_DP = 329
-HOUR_MAX = 13
-HOUR_MIN = 8
-MINUTE_MAX = 59
-MINUTE_MIN = 0
-
-
-def get_prog_bar(current, total, barLength=20):
-    '''Compute data for progress bar.'''
-
-    percent = float(current) / total * 100
-    arrow   = '-' * int(percent / 100 * barLength - 1) + '>'
-    spaces  = ' ' * (barLength - len(arrow))
-    return arrow, spaces, percent
-
-
-def normalize_time(val, min, max):
-    '''Normalize time data to range [-1, 1].'''
-
-    return 2 * (val - min) / (max - min) - 1
-
+BARS_PER_DAY = 390
+DAY_START_MARGIN = 15
+DAY_END_MARGIN = 15
 
 def convert_row_dtype(row_s, dtype=float):
     '''Convert data-type of row (except date string).'''
 
-    ds = [row_s[0]]
-    return ds + [dtype(val) for val in row_s[1:]]
+    return [dtype(val) for val in row_s[2:]]
 
 
 def preload_data():
@@ -66,72 +39,53 @@ def preload_data():
     return raw_data
 
 
+def get_label(index, day_data):
+    # v = day_data[index][2]
+
+    # # get future states
+    # f_1 = bool(day_data[index + 1][2] > v)
+    # f_3 = bool(day_data[index + 3][2] > v)
+    # f_6 = bool(day_data[index + 6][2] > v)
+    # f_9 = bool(day_data[index + 9][2] > v)
+    # f_12 = bool(day_data[index + 12][2] > v)
+    # f_15 = bool(day_data[index + 15][2] > v)
+
+    # # return label
+    # if f_1 and f_3 and f_6 and f_9 and f_12 and f_15: return 1.0
+    # else: return 0.0
+
+    v = day_data[index][2]
+    v_5 = day_data[index + 15][2]
+    if v_5 > v: return 1.0
+    else: return 0.0
+
+
 def process_data(raw_data):
     '''Process raw data and write each datapoint.'''
 
-    # loop over raw days
-    cur_x, cur_y = [], []
-    file_count = 0
-    day_count = 0
+    x, y = [], []
     for day_data in raw_data:
-        print('Progress: [%s%s] %d %%' % get_prog_bar(
-            day_count, len(raw_data)), end='\r')
 
-        # loop over each dp end
-        for end in range(BARS_DAY_OFFSET + 1, BARS_PER_DAY + 1):
-            dp = []
+        # loop over select bars
+        for i in range(DAY_START_MARGIN, BARS_PER_DAY - DAY_END_MARGIN):
+            last_row = day_data[i - 1]
+            row = day_data[i]
 
-            # collect min/max
-            min_max = get_new_min_max(day_data[0])
-            for val in range(1, end):
-                row = day_data[val]
-                min_max = update_min_max(min_max, row)
+            # add input data
+            x.append([
+                (row[0] - last_row[0]) / last_row[0],  # volume return
+                # (row[1] - last_row[2]) / last_row[2],  # open/close return
+                (row[2] - last_row[2]) / last_row[2],  # close/open return
+                # (row[3] - row[1]) / row[1],  # high/open return
+                # (row[4] - row[1]) / row[1],  # low/open return
+            ])
 
-            # build datapoint
-            last_row = day_data[0]
-            for val in range(1, end):
-                row = day_data[val]
-                dp.append([
-                    normalize_time(row[1], HOUR_MIN, HOUR_MAX),  # normalized hour
-                    normalize_time(row[2], MINUTE_MIN, MINUTE_MAX),  # normalized minute
-                    normalize_data(row[3], 'objects', min_max),  # normalized objects
-                    (row[3] - last_row[3]) / last_row[3],  # objects return
-                    normalize_data(row[4], 'volume', min_max),  # normalized volume
-                    (row[4] - last_row[4]) / last_row[4],  # volume return
-                    (row[5] - last_row[5]) / last_row[5],  # vwap return
-                    (row[6] - last_row[7]) / last_row[7],  # open return
-                    (row[7] - last_row[7]) / last_row[7],  # close return
-                    (row[8] - last_row[7]) / last_row[7],  # high return
-                    (row[9] - last_row[7]) / last_row[7],  # low return
-                ])
-                last_row = row
-            
-            # pad inputs
-            dp_arr = np.array(dp)
-            dp_pad = np.pad(
-                dp_arr, 
-                ((MAX_BARS_PER_DP - len(dp), 0), (0, 0)), 
-                'constant'
-            )
-
-            # add inputs and labels
-            cur_x.append(dp_pad)
-            cur_y.append(np.array([
-                int(((last_row[10] - last_row[7]) / last_row[7]) >= RETURN_MARGIN_5),  # 5-bar return label
-                int(((last_row[11] - last_row[7]) / last_row[7]) >= RETURN_MARGIN_15),  # 15-bar return label
-                int(((last_row[12] - last_row[7]) / last_row[7]) >= RETURN_MARGIN_30),  # 30-bar return label
-                int(((last_row[13] - last_row[7]) / last_row[7]) >= RETURN_MARGIN_60),  # 60-bar return label
-            ]))
-
-            # save array as numpy file 
-            if len(cur_x) >= DPS_PER_FILE:
-                x, y = np.array(cur_x), np.array(cur_y)
-                np.savez('proc.nosync/{}-{}.npz'.format(TICKER, file_count), x=x, y=y)
-                file_count += 1
-                cur_x, cur_y = [], []
-
-        # increment day
-        day_count += 1
+            # add label data
+            y.append(get_label(i, day_data))
+    
+    # save data as numpy files
+    x, y = np.array(x), np.array(y)
+    np.savez('proc.nosync/{}.npz'.format(TICKER), x=x, y=y)
 
 
 if __name__ == '__main__':
@@ -141,6 +95,6 @@ if __name__ == '__main__':
     raw_data = preload_data()
     
     # process data
-    print('\nProcessing data...')
+    print('Processing data...')
     process_data(raw_data)
-    print('\n\nFinished!')
+    print('Done!')

@@ -4,7 +4,7 @@ import csv
 
 
 # customizable presets
-TICKER = 'AAPL'
+TICKER = 'GDX'
 
 # api data
 URL_START = 'https://api.polygon.io/v2/aggs/ticker/{}/range/1/minute/'.format(TICKER)
@@ -42,6 +42,7 @@ def write_data(writer, date, results):
 
     last_time = None
     minute_bars = 0
+    data_all = []
 
     # write each bar in results
     for i in range(len(results)):
@@ -55,52 +56,37 @@ def write_data(writer, date, results):
 
         # verify bar
         valid_flag, mh_flag = validate_bar(last_time, date, hour, minute)
+        if hour >= LOCAL_MARKET_CLOSE_HOUR: break
 
         # check invalid bar error
         if not valid_flag:
             print('Validation error on {} @ {}:{}'.format(date, hour, minute))
-            return False
+            break
 
         # write valid bar
-        elif mh_flag and hour < LOCAL_MARKET_CLOSE_HOUR - 1:
-            bar_5 = results[i + 5]
-            bar_15 = results[i + 15]
-            bar_30 = results[i + 30]
-            bar_60 = results[i + 60]
+        elif mh_flag:
 
             # build data row
             data = [
-
-                # input
                 date,
-                hour,
-                minute,
-                bar['n'],
+                minute_bars,
                 bar['v'],
-                bar['vw'],
                 bar['o'],
                 bar['c'],
                 bar['h'],
-                bar['l'],
-
-                # labels
-                bar_5['c'],
-                bar_15['c'],
-                bar_30['c'],
-                bar_60['c']
+                bar['l']
             ]
 
             # write data row
-            writer.writerow(data)
+            data_all.append(data)
             last_time = (hour, minute)
             minute_bars += 1
 
-        # end after closing hours
-        elif hour >= LOCAL_MARKET_CLOSE_HOUR - 1: break
-
-    # verify valid bar count
-    if minute_bars != MARKET_MINUTE_BAR_COUNT - 60: return False
-    else: return True
+    # bulk write bars
+    if minute_bars == MARKET_MINUTE_BAR_COUNT: 
+        writer.writerows(data_all)
+        return True
+    else: return False
 
 
 def collect_data():
@@ -119,7 +105,7 @@ def collect_data():
             for m in range(12):
                 month = m + 1
                 month_str = str(month) if month >= 10 else '0' + str(month)
-                print('UPDATE: {}/{}'.format(month_str, year_str))
+                print('\nUPDATE: {}/{}\n'.format(month_str, year_str))
 
                 # loop through days
                 for d in range(31):
@@ -144,7 +130,6 @@ def collect_data():
                     else:
                         valid_flag = write_data(file_writer, date, r_data['results'])
                         if valid_flag: valid_days += 1
-                        else: return
 
             # print trading days count
             print('Total trading days in {}: {}'.format(year_str, valid_days))

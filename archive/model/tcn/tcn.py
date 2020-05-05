@@ -129,7 +129,7 @@ class DenseClassifier(layers.Layer):
         self.output_layer = layers.Dense(
             output_n,
 
-            activation=tf.keras.activations.sigmoid,
+            activation=None,
             use_bias=True,
             kernel_initializer='glorot_uniform',
             bias_initializer='zeros',

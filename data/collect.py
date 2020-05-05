@@ -4,7 +4,9 @@ import csv
 
 
 # customizable presets
-TICKER = 'GDX'
+TICKER = 'AAPL'
+START_YEAR = 2015
+END_YEAR = 2020
 
 # api data
 URL_START = 'https://api.polygon.io/v2/aggs/ticker/{}/range/1/minute/'.format(TICKER)
@@ -15,15 +17,9 @@ LOCAL_MARKET_OPEN_HOUR = 8
 LOCAL_MARKET_OPEN_MINUTE = 30
 LOCAL_MARKET_CLOSE_HOUR = 15
 MARKET_MINUTE_BAR_COUNT = 390
-EARLY_CLOSE_DATES = set([
-    '2017-07-03', '2018-07-03', '2019-07-03',
-    '2017-11-24', '2018-11-23', '2019-11-29',
-    '2018-12-24', '2019-12-24'
-])
 
 
 def validate_bar(last_time, date, hour, minute):
-    '''Verifiy validity of minute bar timing.'''
 
     # verify market hours
     if hour < LOCAL_MARKET_OPEN_HOUR or hour >= LOCAL_MARKET_CLOSE_HOUR: return True, False
@@ -38,8 +34,6 @@ def validate_bar(last_time, date, hour, minute):
 
 
 def write_data(writer, date, results):
-    '''Write valid input and label data to CSV.'''
-
     last_time = None
     minute_bars = 0
     data_all = []
@@ -60,21 +54,27 @@ def write_data(writer, date, results):
 
         # check invalid bar error
         if not valid_flag:
-            print('Validation error on {} @ {}:{}'.format(date, hour, minute))
+            print('Missing full data on {}'.format(date))
             break
 
         # write valid bar
         elif mh_flag:
+            
+            # format time strings
+            hour_str = str(hour)
+            hour_str = '0' + hour_str if len(hour_str) == 1 else hour_str
+            min_str = str(minute)
+            min_str = '0' + min_str if len(min_str) == 1 else min_str
+            time_str = date + ' ' + hour_str + ':' + min_str + ':00'
 
             # build data row
             data = [
-                date,
-                minute_bars,
+                time_str,
                 bar['v'],
                 bar['o'],
-                bar['c'],
                 bar['h'],
-                bar['l']
+                bar['l'],
+                bar['c'],
             ]
 
             # write data row
@@ -85,55 +85,36 @@ def write_data(writer, date, results):
     # bulk write bars
     if minute_bars == MARKET_MINUTE_BAR_COUNT: 
         writer.writerows(data_all)
-        return True
-    else: return False
 
 
 def collect_data():
-    '''Collect, verify, and write all market data in three year period.'''
-
     with open('raw.nosync/{}.csv'.format(TICKER), 'w+') as raw_file:
         file_writer = csv.writer(raw_file)
 
         # loop through years
-        for y in range(3):
-            year = 2017 + y
+        for year in range(START_YEAR, END_YEAR + 1):
             year_str = str(year)
-            valid_days = 0
 
             # loop through months
-            for m in range(12):
-                month = m + 1
+            if year == 2020: months = 4
+            else: months = 12
+            for month in range(1, months + 1):
                 month_str = str(month) if month >= 10 else '0' + str(month)
-                print('\nUPDATE: {}/{}\n'.format(month_str, year_str))
+                print('\nProgress: {}/{}\n'.format(month_str, year_str))
 
                 # loop through days
-                for d in range(31):
-                    day = d + 1
+                for day in range(1, 32):
                     day_str = str(day) if day >= 10 else '0' + str(day)
 
-                    # build target date
-                    date = '{}-{}-{}'.format(year_str, month_str, day_str)
-                    if date in EARLY_CLOSE_DATES:
-                        print('Market holiday on {}'.format(date))
-                        continue
-
                     # fetch data
+                    date = '{}-{}-{}'.format(year_str, month_str, day_str)
                     r = requests.get(URL_START + '{}/{}'.format(date, date) + URL_END)
                     r_data = r.json()
 
                     # verify data
-                    if r_data['status'] == 'ERROR':
-                        print('Retrieval error on {}: {}'.format(date, r_data['error']))
-                    elif r_data['resultsCount'] == 0:
-                        print('Market closed on {}'.format(date))
-                    else:
-                        valid_flag = write_data(file_writer, date, r_data['results'])
-                        if valid_flag: valid_days += 1
-
-            # print trading days count
-            print('Total trading days in {}: {}'.format(year_str, valid_days))
-
+                    if r_data['status'] == 'ERROR': continue
+                    elif r_data['resultsCount'] == 0: print('Market closed on {}'.format(date))
+                    else: write_data(file_writer, date, r_data['results'])
 
 if __name__ == '__main__':
     collect_data()

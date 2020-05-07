@@ -12,7 +12,7 @@ class BacktestManager:
                  balance=10000.0):
         
         # init assets
-        self.balance_manager = BalanceManager(init_balance=balance) 
+        self.balance_manager = BalanceManager(balance) 
         self.order_manager = OrderManager(self.balance_manager)
         self.strategy = strategy(self.order_manager)
         
@@ -34,7 +34,6 @@ class BacktestManager:
 
     def run(self, verbose=False):
         total_days = self.data.shape[0] // BARS_PER_DAY
-        if verbose: print('Balance: {}'.format(self.balance_manager.get_balance()))
 
         for date_index in range(total_days):
             true_date_index = date_index * BARS_PER_DAY
@@ -76,8 +75,9 @@ class BacktestManager:
                         self.short_markers.append(np.nan)
 
         # wrap-up backtest
-        if verbose: print('Balance: {}'.format(self.balance_manager.get_balance()))
-
+        if verbose: 
+            for k, v in self.balance_manager.get_report().items():
+                print('{}: {}'.format(k, v))
 
     def plot(self):
         if self.plot_date:

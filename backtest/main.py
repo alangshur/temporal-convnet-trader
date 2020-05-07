@@ -4,10 +4,10 @@ from backtest import BacktestManager
 
 
 bt = BacktestManager(
-    '../data/raw.nosync/AAPL-m.csv', 
+    '../data/raw.nosync/AAPL.csv', 
     MovingAverageCrossover, 
     plot_date='2020-04-30'
 )
 
-bt.run(verbose=True)
+bt.run()
 bt.plot()

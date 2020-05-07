@@ -12,11 +12,13 @@ class BacktestManager:
                  balance=10000.0):
         
         # init assets
+        print('\nInitializing backtest.')
         self.balance_manager = BalanceManager(balance) 
         self.order_manager = OrderManager(self.balance_manager)
         self.strategy = strategy(self.order_manager)
         
         # load data
+        print('Loading data.')
         self.data = pd.read_csv(
             csv_file,
             names=[
@@ -30,10 +32,12 @@ class BacktestManager:
         self.metrics = {}
         self.long_markers = []
         self.short_markers = []
+        print('Backtest ready.')
 
 
-    def run(self, verbose=False):
+    def run(self):
         total_days = self.data.shape[0] // BARS_PER_DAY
+        print('\nRunning backtest.')
 
         for date_index in range(total_days):
             true_date_index = date_index * BARS_PER_DAY
@@ -41,6 +45,7 @@ class BacktestManager:
             # get backtest datetime
             datetime = self.data[true_date_index, ROW_INDICES.DATETIME]
             date_str = datetime.split(' ')[0]
+            print('Backtesting on: {}'.format(date_str), end='\r')
             
             # prepare plot data
             record_metrics = False
@@ -75,11 +80,13 @@ class BacktestManager:
                         self.short_markers.append(np.nan)
 
         # wrap-up backtest
-        if verbose: 
-            for k, v in self.balance_manager.get_report().items():
-                print('{}: {}'.format(k, v))
+        print('\n\n--- Results for {} ---\n'.format(
+            self.strategy.__class__.__name__))
+        for k, v in self.balance_manager.get_report().items():
+            print('{}: {}'.format(k, v))
 
     def plot(self):
+        print('\nPlotting results.')
         if self.plot_date:
 
             # configure datetime axis

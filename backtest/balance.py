@@ -26,6 +26,8 @@ class BalanceManager:
         return {
             'Starting Balance': str(round(self.init_balance, 3)) + ' USD',
             'Resulting Balance': str(round(self.balance, 3)) + ' USD',
+            'Total Profits': str(round(np.sum(outcomes[pos_positions, 0]), 3)) + ' USD',
+            'Total Losses': str(round(np.sum(outcomes[neg_positions, 0]), 3)) + ' USD',
             'Total Return': str(round((self.balance - self.init_balance) / self.init_balance * 100, 3)) + '%',
             'Accuracy': str(round(pos_positions.shape[0] / (pos_positions.shape[0] + neg_positions.shape[0]) * 100, 3)) + '%',
             'Average Return': str(round(np.mean(returns), 3)) + '%',

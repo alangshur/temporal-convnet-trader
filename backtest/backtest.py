@@ -1,17 +1,15 @@
 from order import OrderManager
 from balance import BalanceManager
-import config
+from config import BARS_PER_DAY, ROW_INDICES, ORDER_DIRS
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt 
 
-BARS_PER_DAY = 390
-
 
 
 class BacktestManager:
-    def __init__(self, csv_file, strategy, balance=10000.0, 
-                 plot_date=None):
+    def __init__(self, csv_file, strategy, plot_date=None, 
+                 balance=10000.0):
         
         # init assets
         self.balance_manager = BalanceManager(init_balance=balance) 
@@ -29,59 +27,90 @@ class BacktestManager:
 
         # add plot data
         self.plot_date = plot_date
-        self.positions = []
+        self.metrics = {}
         self.long_markers = []
-        self.close_markers = []
+        self.short_markers = []
 
 
     def run(self, verbose=False):
         total_days = self.data.shape[0] // BARS_PER_DAY
         if verbose: print('Balance: {}'.format(self.balance_manager.get_balance()))
 
-        for day_idx in range(total_days):
-            date_index = day_idx * BARS_PER_DAY
-            prev_date_index = date_index - BARS_PER_DAY
+        for date_index in range(total_days):
+            true_date_index = date_index * BARS_PER_DAY
 
             # get backtest datetime
-            datetime = self.data[date_index, config.ROW_INDICES.DATETIME]
+            datetime = self.data[true_date_index, ROW_INDICES.DATETIME]
             date_str = datetime.split(' ')[0]
             
-            # get plot date
+            # prepare plot data
+            record_metrics = False
             if self.plot_date == date_str:
-                self.plot_date_index = date_index
+                self.plot_date_index = true_date_index
+                record_metrics = True
 
-            for bar_idx in range(BARS_PER_DAY):
-                true_bar_index = date_index + bar_idx
-                day_data = self.data[date_index:true_bar_index + 1]
-                bar_data = day_data[-1]
+            for bar_index in range(BARS_PER_DAY):
+                true_bar_index = true_date_index + bar_index
+                date_data = self.data[true_date_index:true_bar_index + 1]
+                bar_data = date_data[-1]
 
                 # update assets
                 self.order_manager.update(bar_data)
-                result = self.strategy.update(day_data, bar_idx)
+                update = self.strategy.update(date_data, bar_index)
+
+                # record metrics
+                if record_metrics and update:
+
+                    for k, v in update.metrics.items():
+                        if k in self.metrics: self.metrics[k].append(v)
+                        else: self.metrics[k] = [v]
+
+                    if update.direction == ORDER_DIRS.LONG: 
+                        self.long_markers.append(bar_data[ROW_INDICES.CLOSE])
+                        self.short_markers.append(np.nan)
+                    elif update.direction == ORDER_DIRS.SHORT:
+                        self.long_markers.append(np.nan)
+                        self.short_markers.append(bar_data[ROW_INDICES.CLOSE])
+                    else:
+                        self.long_markers.append(np.nan)
+                        self.short_markers.append(np.nan)
 
         # wrap-up backtest
-        if not self.plot_date: 
-            self.plot_date = date_str
-            self.plot_date_index = date_index
         if verbose: print('Balance: {}'.format(self.balance_manager.get_balance()))
 
 
     def plot(self):
+        if self.plot_date:
 
-        # configure datetime axis
-        datetime_data = self.data[self.plot_date_index:
-            self.plot_date_index + BARS_PER_DAY, 
-            config.ROW_INDICES.DATETIME]
-        datetime_data = datetime_data.astype(np.datetime64)
+            # configure datetime axis
+            datetime_data = self.data[self.plot_date_index:
+                self.plot_date_index + BARS_PER_DAY, ROW_INDICES.DATETIME]
+            datetime_data = datetime_data.astype(np.datetime64)
 
-        # configure close price axis
-        close_data = self.data[self.plot_date_index:
-            self.plot_date_index + BARS_PER_DAY,
-            config.ROW_INDICES.CLOSE]
+            # configure close price axis
+            close_data = self.data[self.plot_date_index:
+                self.plot_date_index + BARS_PER_DAY, ROW_INDICES.CLOSE]
 
-        # plot data
-        plt.plot(datetime_data, close_data)
-        plt.xlabel('Time (Minute Bar)')
-        plt.ylabel('Closing Prices (Dollar)')
-        plt.show()
+            # plot close data
+            plt.plot(datetime_data, close_data)
+            labels = ['close']
+
+            # plot metric data
+            for k, v in self.metrics.items():
+                metric_arr = np.array(v)
+                plt.plot(datetime_data, metric_arr)
+                labels.append(k)
+
+            # plot signal data
+            long_markers = np.array(self.long_markers) - 1.25
+            short_markers = np.array(self.short_markers) + 1.25
+            plt.plot(datetime_data, long_markers, marker='^', color='g', markersize=11, linestyle='None')
+            plt.plot(datetime_data, short_markers, marker='v', color='r', markersize=11, linestyle='None')
+            labels.extend(['l_signal', 's_signal'])
+
+            # display plot
+            plt.legend(labels)
+            plt.xlabel('Time (Minute Bars)')
+            plt.ylabel('Closing Prices (USD)')
+            plt.show()
 

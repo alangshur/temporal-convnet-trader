@@ -19,10 +19,18 @@ class BalanceManager:
 
     def get_report(self):
         outcomes = np.array(self.position_outcomes)
+
+        # print no-trade report
+        if outcomes.shape[0] == 0:
+            return {
+                'Starting Balance': str(round(self.init_balance, 3)) + ' USD',
+                'Resulting Balance': str(round(self.balance, 3)) + ' USD',
+            }
+
+        # print trade report
         pos_positions = np.where(outcomes[:, 0] > 0)[0]
         neg_positions = np.where(outcomes[:, 0] <= 0)[0]
         returns = outcomes[:, 0] / outcomes[:, 1] * 100
-        
         return {
             'Starting Balance': str(round(self.init_balance, 3)) + ' USD',
             'Resulting Balance': str(round(self.balance, 3)) + ' USD',

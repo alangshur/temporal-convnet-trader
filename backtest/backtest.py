@@ -1,21 +1,22 @@
 from order import OrderManager
 from balance import BalanceManager
 from config import BARS_PER_DAY, ROW_INDICES, ORDER_DIRS
+import matplotlib.pyplot as plt 
+import matplotlib.dates as mdates
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt 
-
+import math
 
 
 class BacktestManager:
-    def __init__(self, csv_file, strategy, plot_date=None, 
-                 balance=10000.0):
+    def __init__(self, csv_file, strategy, strategy_params={},
+                 plot_date=None, balance=10000.0, target_date=None):
         
         # init assets
         print('\nInitializing backtest.')
         self.balance_manager = BalanceManager(balance) 
         self.order_manager = OrderManager(self.balance_manager)
-        self.strategy = strategy(self.order_manager)
+        self.strategy = strategy(self.order_manager, **strategy_params)
         
         # load data
         print('Loading data.')
@@ -27,9 +28,15 @@ class BacktestManager:
             ]
         ).to_numpy()
 
-        # add plot data
+        # add target data
         self.plot_date = plot_date
+        self.target_date = target_date
+        if target_date is not None: self.plot_date = target_date
+        else: self.plot_date = plot_date
+
+        # add plot data
         self.metrics = {}
+        self.sub_metrics = {}
         self.long_markers = []
         self.short_markers = []
         print('Backtest ready.')
@@ -52,6 +59,7 @@ class BacktestManager:
             if self.plot_date == date_str:
                 self.plot_date_index = true_date_index
                 record_metrics = True
+            elif self.target_date: continue
 
             for bar_index in range(BARS_PER_DAY):
                 true_bar_index = true_date_index + bar_index
@@ -62,13 +70,22 @@ class BacktestManager:
                 self.order_manager.update(bar_data)
                 update = self.strategy.update(date_data, bar_index)
 
-                # record metrics
-                if record_metrics and update:
+                # record data
+                if record_metrics:
 
-                    for k, v in update.metrics.items():
-                        if k in self.metrics: self.metrics[k].append(v)
-                        else: self.metrics[k] = [v]
+                    # update main metrics
+                    if update.metrics is not None:
+                        for m_name, metric in update.metrics.items():
+                            if m_name in self.metrics: self.metrics[m_name].append(metric)
+                            else: self.metrics[m_name] = [metric]
 
+                    # update sub metrics
+                    if update.sub_metrics is not None:
+                        for m_name, metric in update.sub_metrics.items():
+                            if m_name in self.sub_metrics: self.sub_metrics[m_name].append(metric)
+                            else: self.sub_metrics[m_name] = [metric]
+
+                    # update positions
                     if update.direction == ORDER_DIRS.LONG: 
                         self.long_markers.append(bar_data[ROW_INDICES.CLOSE])
                         self.short_markers.append(np.nan)
@@ -78,6 +95,9 @@ class BacktestManager:
                     else:
                         self.long_markers.append(np.nan)
                         self.short_markers.append(np.nan)
+                
+            # quit after target
+            if self.target_date: break
 
         # wrap-up backtest
         print('\n\n--- Results for {} ---\n'.format(
@@ -86,10 +106,11 @@ class BacktestManager:
             print('{}: {}'.format(k, v))
 
     def plot(self):
-        print('\nPlotting results.')
-        if self.plot_date:
+        if self.plot_date is not None:
+            print('\nPlotting results.')
 
             # configure datetime axis
+            date_fmt = mdates.DateFormatter('%H:%M')
             datetime_data = self.data[self.plot_date_index:
                 self.plot_date_index + BARS_PER_DAY, ROW_INDICES.DATETIME]
             datetime_data = datetime_data.astype(np.datetime64)
@@ -99,25 +120,37 @@ class BacktestManager:
                 self.plot_date_index + BARS_PER_DAY, ROW_INDICES.CLOSE]
 
             # plot close data
-            plt.plot(datetime_data, close_data)
-            labels = ['close']
+            fig, ax = plt.subplots(1 + int(len(self.sub_metrics) > 0), figsize=(12, 8))
+            if len(self.sub_metrics) == 0: ax = [ax]
+            ax[0].plot(datetime_data, close_data)
+            ax[0].xaxis.set_major_formatter(date_fmt)
+            metric_labels = ['close']
 
             # plot metric data
-            for k, v in self.metrics.items():
-                metric_arr = np.array(v)
-                plt.plot(datetime_data, metric_arr)
-                labels.append(k)
+            for m_name, metric in self.metrics.items():
+                metric_arr = np.array(metric)
+                ax[0].plot(datetime_data, metric_arr)
+                metric_labels.append(m_name)
+
+            # plot sub-metric data
+            sub_metric_labels = []
+            for m_name, metric in self.sub_metrics.items():
+                metric_arr = np.array(metric)
+                if math.isnan(metric_arr[0]): metric_arr[0] = 0.0
+                if math.isnan(metric_arr[-1]): metric_arr[-1] = 0.0
+                ax[1].plot(datetime_data, metric_arr)
+                sub_metric_labels.append(m_name)
 
             # plot signal data
             long_markers = np.array(self.long_markers) - 1.25
             short_markers = np.array(self.short_markers) + 1.25
-            plt.plot(datetime_data, long_markers, marker='^', color='g', markersize=11, linestyle='None')
-            plt.plot(datetime_data, short_markers, marker='v', color='r', markersize=11, linestyle='None')
-            labels.extend(['l_signal', 's_signal'])
+            ax[0].plot(datetime_data, long_markers, marker='^', color='g', markersize=11, linestyle='None')
+            ax[0].plot(datetime_data, short_markers, marker='v', color='r', markersize=11, linestyle='None')
+            metric_labels.extend(['l_signal', 's_signal'])
 
-            # display plot
-            plt.legend(labels)
-            plt.xlabel('Time (Minute Bars)')
-            plt.ylabel('Closing Prices (USD)')
+            # finalize plots
+            ax[0].legend(metric_labels)
+            if len(sub_metric_labels) > 0: 
+                ax[1].legend(sub_metric_labels)
+                ax[1].xaxis.set_major_formatter(date_fmt)
             plt.show()
-

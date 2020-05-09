@@ -39,8 +39,8 @@ class BalanceManager:
             'Total Return': str(round((self.balance - self.init_balance) / self.init_balance * 100, 3)) + '%',
             'Accuracy': str(round(pos_positions.shape[0] / (pos_positions.shape[0] + neg_positions.shape[0]) * 100, 3)) + '%',
             'Average Return': str(round(np.mean(returns), 3)) + '%',
-            'Average Positive Return': str(round(np.mean(returns[pos_positions]), 3)) + '%',
-            'Average Negative Return': str(round(np.mean(returns[neg_positions]), 3)) + '%'
+            'Average Positive Return': '--' if not pos_positions.shape[0] else str(round(np.mean(returns[pos_positions]), 3)) + '%',
+            'Average Negative Return': '--' if not neg_positions.shape[0] else str(round(np.mean(returns[neg_positions]), 3)) + '%'
         }
 
     def update(self, change, position_closed=False):

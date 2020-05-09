@@ -151,7 +151,7 @@ class MACDCrossover(Strategy):
 
 
 class RSIPosition(Strategy):
-    def __init__(self, order_manager, min=30, max=70):
+    def __init__(self, order_manager, min=20, max=80):
 
         # init base class
         super(RSIPosition, self).__init__(order_manager)
@@ -170,6 +170,11 @@ class RSIPosition(Strategy):
         sub_metrics = {
             'rsi': np.nan if rsi_val is None else rsi_val
         }
+
+        # close position on last bar
+        if day_index == BARS_PER_DAY - 1:
+            self.order_manager.add_order(ORDER_TYPES.CLOSE)
+            return StrategyUpdate(direction=ORDER_DIRS.SHORT, sub_metrics=sub_metrics)
 
         # verify rsi position
         if rsi_val is not None:

@@ -117,7 +117,9 @@ class RelativeStrengthIndex(Indicator):
             ret = (data[-1, self.index] - data[-2, self.index]) / data[-2, self.index]
             self.average_gain = ((self.period - 1) * self.average_gain + abs(max(ret, 0))) / self.period
             self.average_loss = ((self.period - 1) * self.average_loss + abs(min(ret, 0))) / self.period
-            return 100 - 100 / (1 + self.average_gain / self.average_loss)
+            if self.average_gain == 0: return 0.0
+            elif self.average_loss == 0: return 100.0
+            else: return 100 - 100 / (1 + self.average_gain / self.average_loss)
 
         else: return None
         

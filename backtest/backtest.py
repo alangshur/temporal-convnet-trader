@@ -46,6 +46,8 @@ class BacktestManager:
         total_days = self.data.shape[0] // BARS_PER_DAY
         print('\nRunning backtest.')
 
+        deltas = 0
+
         for date_index in range(total_days):
             true_date_index = date_index * BARS_PER_DAY
 
@@ -69,6 +71,13 @@ class BacktestManager:
                 # update assets
                 self.order_manager.update(bar_data)
                 update = self.strategy.update(date_data, bar_index)
+
+                if update.direction == ORDER_DIRS.LONG:
+                    future = self.data[true_bar_index + 2, ROW_INDICES.CLOSE]
+                    delta = future - bar_data[ROW_INDICES.CLOSE]
+                    print(delta)
+                    deltas += delta
+
 
                 # record data
                 if record_metrics:
@@ -99,11 +108,16 @@ class BacktestManager:
             # quit after target
             if self.target_date: break
 
+        print(deltas)
+
         # wrap-up backtest
         print('\n\n--- Results for {} ---\n'.format(
             self.strategy.__class__.__name__))
         for k, v in self.balance_manager.get_report().items():
-            print('{}: {}'.format(k, v))
+            print('{}: {}'.format(k, round(v, 3)))
+        print('\n--------------------{}'.format(
+            '-' * len(self.strategy.__class__.__name__)
+        ))
 
     def plot(self):
         if self.plot_date is not None:
@@ -136,16 +150,20 @@ class BacktestManager:
             sub_metric_labels = []
             for m_name, metric in self.sub_metrics.items():
                 metric_arr = np.array(metric)
-                if math.isnan(metric_arr[0]): metric_arr[0] = 0.0
-                if math.isnan(metric_arr[-1]): metric_arr[-1] = 0.0
+                if math.isnan(metric_arr[0]): 
+                    metric_arr[0] = 0.0
+                    metric_arr[1] = np.nan
+                if math.isnan(metric_arr[-1]): 
+                    metric_arr[-1] = 0.0
+                    metric_arr[-2] = np.nan
                 ax[1].plot(datetime_data, metric_arr)
                 sub_metric_labels.append(m_name)
 
             # plot signal data
-            long_markers = np.array(self.long_markers) - 1.25
-            short_markers = np.array(self.short_markers) + 1.25
-            ax[0].plot(datetime_data, long_markers, marker='^', color='g', markersize=11, linestyle='None')
-            ax[0].plot(datetime_data, short_markers, marker='v', color='r', markersize=11, linestyle='None')
+            long_markers = np.array(self.long_markers) - 1
+            short_markers = np.array(self.short_markers) + 1
+            ax[0].plot(datetime_data, long_markers, marker='^', color='g', markersize=10, linestyle='None')
+            ax[0].plot(datetime_data, short_markers, marker='v', color='r', markersize=10, linestyle='None')
             metric_labels.extend(['l_signal', 's_signal'])
 
             # finalize plots

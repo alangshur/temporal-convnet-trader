@@ -1,12 +1,12 @@
-from strategy import MACDCrossover, MovingAverageCrossover, RSIPosition
+from strategy import CustomStrategy
 from backtest import BacktestManager
 
 bt = BacktestManager(
     '../data/raw.nosync/AAPL.csv', 
-    RSIPosition, 
-    plot_date='2020-04-27'
-    # target_date='2020-04-30'
+    CustomStrategy, 
+    plot_date='2020-04-28',
+    # target_date='2020-04-28',
 )
 
 bt.run()
-# bt.plot()
+bt.plot()

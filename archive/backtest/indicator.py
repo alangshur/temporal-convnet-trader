@@ -75,6 +75,31 @@ class ExpontentialMovingAverage(Indicator):
 
 
 
+class SmoothMovingAverage(Indicator):
+    def __init__(self, alpha=0.01):
+
+        # init base class
+        super(SmoothMovingAverage, self).__init__()
+
+        # init indicator values
+        self.alpha = alpha
+        self.avg = None
+
+    def update(self, data):
+        if self.avg is None:
+            self.avg = np.mean(data[-1, ROW_INDICES.OPEN:])
+        else:
+            avg = np.mean(data[-1, ROW_INDICES.OPEN:])
+            self.avg = self.avg * (1 - self.alpha) + avg * self.alpha
+
+        return self.avg
+        
+    
+    def clear(self):
+        self.avg = None
+
+
+
 class MovingAverageConvDiv(Indicator):
     def __init__(self, short_period=12, long_period=26):
 

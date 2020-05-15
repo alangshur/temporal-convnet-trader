@@ -1,22 +1,39 @@
+import pandas_market_calendars as mcal
+from datetime import datetime
 import requests
 import time
 import csv
 
 
 # customizable presets
-TICKER = 'AAPL'
-START_YEAR = 2015
-END_YEAR = 2020
+TICKER = 'SPY'
+START_DATE = '2010-01-01'
+END_DATE = '2020-05-14'
+MULT = 5
 
 # api data
-URL_START = 'https://api.polygon.io/v2/aggs/ticker/{}/range/1/minute/'.format(TICKER)
+URL_START = 'https://api.polygon.io/v2/aggs/ticker/{}/range/{}/minute/'.format(TICKER, MULT)
 URL_END = '?apiKey=AK952QW390M7XSKYCHQQ'
 
 # market timing data
 LOCAL_MARKET_OPEN_HOUR = 8
 LOCAL_MARKET_OPEN_MINUTE = 30
 LOCAL_MARKET_CLOSE_HOUR = 15
-MARKET_MINUTE_BAR_COUNT = 390
+EARLY_LOCAL_MARKET_CLOSE_HOUR = 12
+MARKET_BAR_COUNT = int(390 / MULT)
+EARLY_MARKET_BAR_COUNT = int(210 / MULT)
+
+
+def get_market_holidays():
+    nyse = mcal.get_calendar('NYSE')
+    schedule = nyse.schedule(start_date=START_DATE, end_date=END_DATE)
+    valid_days = nyse.valid_days(start_date=START_DATE, end_date='2019-12-26')
+    early_days = nyse.early_closes(schedule=schedule)
+    valid_dates = [str(t.date()) for t in valid_days.to_list()]
+    early_dates = [str(t.date()) for t in early_days.index.to_list()]
+    comb_dates = list(set(valid_dates).union(set(early_dates)))
+    dates = sorted(comb_dates, key=lambda d: datetime.strptime(d, '%Y-%m-%d'))
+    return dates, set(early_dates)
 
 
 def validate_bar(last_time, date, hour, minute):
@@ -27,16 +44,16 @@ def validate_bar(last_time, date, hour, minute):
 
     # verify continuity
     if last_time:
-        if minute > 0 and (last_time[0] != hour or last_time[1] + 1 != minute): return False, True
-        elif minute == 0 and (last_time[0] + 1 != hour or last_time[1] != 59): return False, True
+        if minute > 0 and (last_time[0] != hour or last_time[1] + MULT != minute): return False, True
+        elif minute == 0 and (last_time[0] + 1 != hour or last_time[1] != 60 - MULT): return False, True
 
     return True, True
 
 
-def write_data(writer, date, results):
+def write_data(writer, date, early_flag, results):
     last_time = None
-    minute_bars = 0
     data_all = []
+    bars = 0
 
     # write each bar in results
     for i in range(len(results)):
@@ -48,73 +65,59 @@ def write_data(writer, date, results):
         hour = int(time.strftime('%H', localtime))
         minute = int(time.strftime('%M', localtime))
 
+        # format time strings
+        hour_str, min_str = str(hour), str(minute)
+        hour_str = '0' + hour_str if len(hour_str) == 1 else hour_str
+        min_str = '0' + min_str if len(min_str) == 1 else min_str
+        time_str = date + ' ' + hour_str + ':' + min_str
+
         # verify bar
-        valid_flag, mh_flag = validate_bar(last_time, date, hour, minute)
         if hour >= LOCAL_MARKET_CLOSE_HOUR: break
+        elif early_flag and hour >= EARLY_LOCAL_MARKET_CLOSE_HOUR: break
+        else: valid_flag, mh_flag = validate_bar(last_time, date, hour, minute)
 
-        # check invalid bar error
-        if not valid_flag:
-            print('Missing full data on {}'.format(date))
-            break
-
-        # write valid bar
+        # add bar
+        if not valid_flag: break
         elif mh_flag:
-            
-            # format time strings
-            hour_str = str(hour)
-            hour_str = '0' + hour_str if len(hour_str) == 1 else hour_str
-            min_str = str(minute)
-            min_str = '0' + min_str if len(min_str) == 1 else min_str
-            time_str = date + ' ' + hour_str + ':' + min_str + ':00'
-
-            # build data row
-            data = [
-                time_str,
-                bar['v'],
-                bar['o'],
-                bar['h'],
-                bar['l'],
-                bar['c'],
-            ]
-
-            # write data row
-            data_all.append(data)
+            bar_avg = (bar['o'] + bar['h'] + bar['l'] + bar['c']) / 4.0
+            data_all.append([time_str, bar_avg])
             last_time = (hour, minute)
-            minute_bars += 1
-
-    # bulk write bars
-    if minute_bars == MARKET_MINUTE_BAR_COUNT: 
+            bars += 1
+    
+    # bulk write bars   
+    if (not early_flag and bars == MARKET_BAR_COUNT) or \
+        (early_flag and bars == EARLY_MARKET_BAR_COUNT):
         writer.writerows(data_all)
+        return True
+    else: return False
 
 
 def collect_data():
-    with open('raw.nosync/{}.csv'.format(TICKER), 'w+') as raw_file:
+    dates, early_dates = get_market_holidays()        
+    errors = 0
+
+    with open('{}.nosync/{}m.csv'.format(TICKER, MULT), 'w+') as raw_file:
         file_writer = csv.writer(raw_file)
 
-        # loop through years
-        for year in range(START_YEAR, END_YEAR + 1):
-            year_str = str(year)
+        for date in dates:
+            print(date, end='\r')
 
-            # loop through months
-            if year == 2020: months = 4
-            else: months = 12
-            for month in range(1, months + 1):
-                month_str = str(month) if month >= 10 else '0' + str(month)
-                print('\nProgress: {}/{}\n'.format(month_str, year_str))
+            # fetch data
+            url_mid = '{}/{}'.format(date, date)
+            r = requests.get(URL_START + url_mid + URL_END)
+            r_data = r.json()
 
-                # loop through days
-                for day in range(1, 32):
-                    day_str = str(day) if day >= 10 else '0' + str(day)
+            # verify data
+            if r_data['status'] == 'ERROR': continue
+            elif r_data['resultsCount'] == 0: continue
+            else: 
+                early_flag = bool(date in early_dates)
+                res = write_data(file_writer, date, early_flag, r_data['results'])
+                if not res: errors += 1
+    
+    return errors
 
-                    # fetch data
-                    date = '{}-{}-{}'.format(year_str, month_str, day_str)
-                    r = requests.get(URL_START + '{}/{}'.format(date, date) + URL_END)
-                    r_data = r.json()
-
-                    # verify data
-                    if r_data['status'] == 'ERROR': continue
-                    elif r_data['resultsCount'] == 0: print('Market closed on {}'.format(date))
-                    else: write_data(file_writer, date, r_data['results'])
 
 if __name__ == '__main__':
-    collect_data()
+    errors = collect_data()
+    print('Total errors: {}'.format(errors))

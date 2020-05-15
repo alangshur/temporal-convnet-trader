@@ -72,13 +72,6 @@ class BacktestManager:
                 self.order_manager.update(bar_data)
                 update = self.strategy.update(date_data, bar_index)
 
-                if update.direction == ORDER_DIRS.LONG:
-                    future = self.data[true_bar_index + 2, ROW_INDICES.CLOSE]
-                    delta = future - bar_data[ROW_INDICES.CLOSE]
-                    print(delta)
-                    deltas += delta
-
-
                 # record data
                 if record_metrics:
 

@@ -11,43 +11,51 @@ def calculateReceptiveField(block_config):
         rf += dilation * (2 * kernel - 2)
 
     return rf
-    
+
 
 config = [{
     'filter_count': 16,
-    'kernel_size': 9,
+    'kernel_size': 10,
     'dilation_rate': 1,
     'activation_func': tf.nn.relu,
     'res_activation_func': tf.nn.relu,
-    'dropout_rate': 0.1
+    'dropout_rate': 0.25
 }, {
     'filter_count': 16,
-    'kernel_size': 9,
-    'dilation_rate': 1,
-    'activation_func': tf.nn.relu,
-    'res_activation_func': tf.nn.relu,
-    'dropout_rate': 0.1
-}, {
-    'filter_count': 16,
-    'kernel_size': 9,
+    'kernel_size': 10,
     'dilation_rate': 2,
     'activation_func': tf.nn.relu,
     'res_activation_func': tf.nn.relu,
-    'dropout_rate': 0.1
+    'dropout_rate': 0.25
 }, {
     'filter_count': 16,
-    'kernel_size': 9,
-    'dilation_rate': 2,
+    'kernel_size': 10,
+    'dilation_rate': 4,
     'activation_func': tf.nn.relu,
     'res_activation_func': tf.nn.relu,
-    'dropout_rate': 0.1
+    'dropout_rate': 0.25
 }, {
     'filter_count': 16,
-    'kernel_size': 9,
-    'dilation_rate': 2,
+    'kernel_size': 10,
+    'dilation_rate': 8,
     'activation_func': tf.nn.relu,
     'res_activation_func': tf.nn.relu,
-    'dropout_rate': 0.1
+    'dropout_rate': 0.25
+}, {
+    'filter_count': 16,
+    'kernel_size': 10,
+    'dilation_rate': 16,
+    'activation_func': tf.nn.relu,
+    'res_activation_func': tf.nn.relu,
+    'dropout_rate': 0.25
+}, {
+    'filter_count': 16,
+    'kernel_size': 10,
+    'dilation_rate': 32,
+    'activation_func': tf.nn.relu,
+    'res_activation_func': tf.nn.relu,
+    'dropout_rate': 0.25
 }]
 
-print(calculateReceptiveField(config))
+
+# print(calculateReceptiveField(config))

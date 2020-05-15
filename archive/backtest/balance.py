@@ -44,8 +44,8 @@ class BalanceManager:
             'weighted_accuracy': np.sum(abs_outcomes[pos_positions]) / (np.sum(abs_outcomes[pos_positions]) + 
                 np.sum(abs_outcomes[neg_positions])) * 100,
             'average_return': np.mean(returns),
-            'average_positive_return': '--' if not pos_positions.shape[0] else np.mean(returns[pos_positions]),
-            'average_negative_return': '--' if not neg_positions.shape[0] else np.mean(returns[neg_positions]),
+            'average_positive_return': 0.0 if not pos_positions.shape[0] else np.mean(returns[pos_positions]),
+            'average_negative_return': 0.0 if not neg_positions.shape[0] else np.mean(returns[neg_positions]),
         }
 
     def update(self, change, position_closed=False):

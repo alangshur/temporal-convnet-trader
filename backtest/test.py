@@ -42,7 +42,7 @@ next_neck_sizes_l = []
 avg_bar_sizes = []
 
 # calculate indicators
-atr = talib.ATR(hi, lo, cl, timeperiod=14)
+atr = talib.ATR(hi, lo, cl, timeperiod=30)
 rsi = talib.RSI(cl, timeperiod=14)
 
 # test hypothesis
@@ -78,7 +78,7 @@ for i in range(data.shape[0]):
         if op[i + 1] + 0.20 <= hi[i + 1]: 
             event_count += 1
 
-            if op[i + 1] + 0.28 <= hi[i + 1]:  
+            if op[i + 1] + 0.27 <= hi[i + 1]:  
                 correct_dir += 1
 
 

@@ -8,8 +8,8 @@ import csv
 # customizable presets
 TICKER = 'SPY'
 START_DATE = '2010-01-01'
-END_DATE = '2020-05-15'
-MULT = 1
+END_DATE = '2020-05-22'
+MULT = 15
 
 # api data
 URL_START = 'https://api.polygon.io/v2/aggs/ticker/{}/range/{}/minute/'.format(TICKER, MULT)

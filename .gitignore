@@ -1,7 +1,5 @@
 
 # file types
-*/__pycache__/
-*.csv
-
-# specific folders
-data/SPY.nosync/
+*__pycache__/
+*.csva
+*.ipynb_checkpoints/

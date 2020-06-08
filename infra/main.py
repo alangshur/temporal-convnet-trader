@@ -2,17 +2,19 @@ import alpaca_trade_api as tradeapi
 from datetime import datetime
 import numpy as np
 import talib
+import csv
 
 
 class ScalpStrategy:
-    def __init__(self, target_atr=0.4, start_size=0.20, take_size=0.07, 
-                 stop_size=-0.04, timeout_time=30, verbose=False, test=False):
+    def __init__(self, target_atr=0.3, start_size=0.20, take_size=0.07, 
+                 stop_size=-0.04, timeout_time=30, atr_period=7,
+                 init_csv=None, verbose=False, test=False):
 
         # set meta params
         self.verbose = verbose
         self.test = test
 
-        # set account params
+        # set account paramss
         self.key_id = 'PKYREM6HRZ8CS4BISSPY'
         self.secret_key = 'JDLct0wvUQEmdGvYmwRC4uTrpUqPBe6HYk0kjHAr'
         self.base_url = 'https://paper-api.alpaca.markets'
@@ -32,6 +34,7 @@ class ScalpStrategy:
         self.take_size = take_size
         self.stop_size = stop_size
         self.timeout_time = timeout_time
+        self.atr_period = atr_period
 
         # set state parameters
         self.current_order = None
@@ -39,6 +42,14 @@ class ScalpStrategy:
         self.min_his = []
         self.min_los = []
         self.min_cls = []
+
+        # init state parameters
+        if init_csv is not None:
+            with open(init_csv, 'r') as f:
+                data = np.array(list(csv.reader(f)))
+                self.min_his = list(data[-atr_period:, 2].astype(np.float64))
+                self.min_los = list(data[-atr_period:, 3].astype(np.float64))
+                self.min_cls = list(data[-atr_period:, 4].astype(np.float64))
 
         # get active positions
         self.api.cancel_all_orders()
@@ -69,7 +80,7 @@ class ScalpStrategy:
         @conn.on(r'^A$', [self.symbol])
         async def handle_agg_s(conn, channel, data):
             self.seconds += 1
-
+            
             # cancel expired order
             if self.current_order is not None and self.seconds > self.timeout_time:
                 self.api.cancel_order(self.current_order.id)
@@ -86,13 +97,13 @@ class ScalpStrategy:
 
             # calculate atr
             atr = talib.ATR(np.array(self.min_his), np.array(self.min_los), 
-                np.array(self.min_cls), timeperiod=14)
+                np.array(self.min_cls), timeperiod=self.atr_period)
             curr_atr = atr[-1] if not np.isnan(atr[-1]) else 0.0
             if self.verbose: self.log(info='Price at {}, ATR at {}.'.format(data.close, curr_atr))
 
             # submit order
             if curr_atr >= self.target_atr and self.current_order is None and self.position == 0:
-                self.log(info='Submitting order {}.'.format(self.current_order.id))
+                self.log(info='Submitting order at {}.'.format(data.close))
                 if not self.test:
                     self.current_order = self.api.submit_order(
                         symbol=self.symbol,
@@ -154,5 +165,5 @@ class ScalpStrategy:
 
 
 if __name__ == '__main__':
-    trader = ScalpStrategy(verbose=True, test=True)
+    trader = ScalpStrategy(verbose=True, init_csv='../data/SPY.nosync/1m-extra.csv')
     trader.run()

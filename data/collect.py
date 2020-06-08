@@ -1,21 +1,13 @@
 import pandas_market_calendars as mcal
 from datetime import datetime
+from json.decoder import JSONDecodeError
 import requests
 import time
 import csv
 
 
-# customizable presets
-TICKER = 'SPY'
-START_DATE = '2010-01-01'
-END_DATE = '2020-05-22'
-MULT = 15
-
-# api data
-URL_START = 'https://api.polygon.io/v2/aggs/ticker/{}/range/{}/minute/'.format(TICKER, MULT)
-URL_END = '?apiKey=AK952QW390M7XSKYCHQQ'
-
 # market timing data
+MULT = 30
 LOCAL_MARKET_OPEN_HOUR = 8
 LOCAL_MARKET_OPEN_MINUTE = 30
 LOCAL_MARKET_CLOSE_HOUR = 15
@@ -24,10 +16,10 @@ MARKET_BAR_COUNT = int(390 / MULT)
 EARLY_MARKET_BAR_COUNT = int(210 / MULT)
 
 
-def get_market_holidays():
+def get_market_holidays(start_date, end_date):
     nyse = mcal.get_calendar('NYSE')
-    schedule = nyse.schedule(start_date=START_DATE, end_date=END_DATE)
-    valid_days = nyse.valid_days(start_date=START_DATE, end_date=END_DATE)
+    schedule = nyse.schedule(start_date=start_date, end_date=end_date)
+    valid_days = nyse.valid_days(start_date=start_date, end_date=end_date)
     early_days = nyse.early_closes(schedule=schedule)
     valid_dates = [str(t.date()) for t in valid_days.to_list()]
     early_dates = [str(t.date()) for t in early_days.index.to_list()]
@@ -92,20 +84,31 @@ def write_data(writer, date, early_flag, results):
     else: return False
 
 
-def collect_data():
-    dates, early_dates = get_market_holidays()        
+def collect_data(ticker, ticker_class, start_date='2010-01-01', end_date='2020-06-05'):
+
+    # fetch market holidays
+    dates, early_dates = get_market_holidays(start_date, end_date)        
     errors = 0
 
-    with open('{}.nosync/{}m.csv'.format(TICKER, MULT), 'w+') as raw_file:
+    # write data iteratively
+    with open('{}/{}.csv'.format(ticker_class, ticker), 'w+') as raw_file:
         file_writer = csv.writer(raw_file)
 
         for date in dates:
-            print(date, end='\r')
+            print('{}: {}'.format(ticker, date), end='\r')
 
             # fetch data
-            url_mid = '{}/{}'.format(date, date)
-            r = requests.get(URL_START + url_mid + URL_END)
-            r_data = r.json()
+            while True:
+                try:
+                    url_mid = '{}/{}'.format(date, date)
+                    r_data = requests.get(
+                        'https://api.polygon.io/v2/aggs/ticker/{}/range/{}/minute/'.format(ticker, MULT) \
+                        + url_mid \
+                        + '?apiKey=AK952QW390M7XSKYCHQQ'
+                    ).json()
+                    break
+                except JSONDecodeError:
+                    continue
 
             # verify data
             if r_data['status'] == 'ERROR': continue
@@ -119,5 +122,13 @@ def collect_data():
 
 
 if __name__ == '__main__':
-    errors = collect_data()
-    print('Total errors: {}'.format(errors))
+
+    # specify ticker targets
+    # target_tickers = ['TQQQ', 'UPRO', 'TECL', 'TNA', 'NUGT']
+    target_tickers = ['SSO', 'SDS']
+    ticker_class = 'UNI'
+
+    # iteratively collet ticker data
+    for ticker in target_tickers:
+        errors = collect_data(ticker, ticker_class)
+        print('Loaded {}: {} errors'.format(ticker, errors))

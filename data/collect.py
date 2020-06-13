@@ -7,7 +7,7 @@ import csv
 
 
 # market timing data
-MULT = 30
+MULT = 5
 LOCAL_MARKET_OPEN_HOUR = 8
 LOCAL_MARKET_OPEN_MINUTE = 30
 LOCAL_MARKET_CLOSE_HOUR = 15
@@ -84,7 +84,7 @@ def write_data(writer, date, early_flag, results):
     else: return False
 
 
-def collect_data(ticker, ticker_class, start_date='2010-01-01', end_date='2020-06-05'):
+def collect_data(ticker, ticker_class, start_date='2015-01-01', end_date='2020-06-05'):
 
     # fetch market holidays
     dates, early_dates = get_market_holidays(start_date, end_date)        
@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
     # specify ticker targets
     # target_tickers = ['TQQQ', 'UPRO', 'TECL', 'TNA', 'NUGT']
-    target_tickers = ['SSO', 'SDS']
+    target_tickers = ['SPY']
     ticker_class = 'UNI'
 
     # iteratively collet ticker data

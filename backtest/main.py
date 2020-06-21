@@ -22,12 +22,13 @@ if __name__ == '__main__':
 
     # load historical data
     cerebro.adddata(bt.feeds.GenericCSVData(
-        dataname='../data/UNI/SPY.csv',
-        fromdate=datetime(2016, 1, 5),
-        todate=datetime(2016, 1, 13),
+        dataname='../data/UNI/SPY-1d.csv',
+        fromdate=datetime(2005, 1, 1),
+        todate=datetime(2018, 12, 31),
+        dtformat='%Y-%m-%d',
         openinterest=-1,
-        timeframe=bt.TimeFrame.Minutes,
-        compression=5
+        timeframe=bt.TimeFrame.Days,
+        compression=1
     ))
 
     # add metrics
@@ -41,8 +42,8 @@ if __name__ == '__main__':
     cerebro.addstrategy(ReedStrategy)
     analysis = cerebro.run(maxcpus=1)[0].analyzers
     cerebro.plot(
-        start=datetime(2016, 1, 5),
-        end=datetime(2016, 1, 13)
+        start=datetime(2005, 1, 1),
+        end=datetime(2018, 12, 31)
     )
 
     # print results

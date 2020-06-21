@@ -4,6 +4,7 @@ from os import walk
 from tqdm import tqdm
 import csv
 
+
 def get_market_holidays(start_date, end_date):
     nyse = mcal.get_calendar('NYSE')
     schedule = nyse.schedule(start_date=start_date, end_date=end_date)
@@ -35,11 +36,11 @@ def write_files(targets, datas, path):
 
 
 if __name__ == "__main__":
-    path = 'UNI/'
-    clean_path = 'UNI_clean/'
+    path = 'min/'
+    clean_path = 'min/'
 
     # get dates
-    start_date, end_date = '2010-01-01', '2020-06-05'
+    start_date, end_date = '2005-01-01', '2020-06-12'
     dates, early_dates = get_market_holidays(start_date, end_date)
     total_errors = 0
     max_errors = 0

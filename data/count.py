@@ -4,14 +4,14 @@ import csv
 
 # get filenames
 fs = []
-for (dirpath, dirnames, filenames) in walk('UNI'): 
+for (dirpath, dirnames, filenames) in walk('min'): 
     fs.extend(filenames)
 fs = [f.split('.')[0] for f in fs]
 
 # get number of rows
 lengths = []
 for f in tqdm(fs):
-    df = open('UNI/' + f + '.csv', 'r')
+    df = open('min/' + f + '.csv', 'r')
     length = len(list(csv.reader(df)))
     lengths.append(length)
     df.close()

@@ -5,30 +5,30 @@ from sklearn.linear_model import LinearRegression
 
 
 class ReedScore(bt.Indicator):
-    lines = ('score', 'slope', 'fit')
+    lines = ('error', 'slope')
     params = dict(
-        reg_len=78,
-        ma_len=78
+        reg_len=60
     )
-    
+
     def __init__(self):
         self.tp = (self.data.high + self.data.low + self.data.close) / 3
-        self.ma = bt.ind.TripleExponentialMovingAverage(
-            self.tp, 
-            period=self.p.ma_len
-        )
 
     def next(self):
         if len(self) >= self.p.reg_len:
 
             # fit regression
             x = np.arange(self.p.reg_len).reshape(-1, 1)
-            y = self.tp.get(size=self.p.reg_len, ago=0)
+            y = self.tp.get(size=self.p.reg_len)
             reg = LinearRegression().fit(x, y)
 
-            # update lines
-            self.lines.score[0] = reg.score(x, y)
-            self.lines.slope[0] = reg.coef_[0]
+            # calculate lines
+            y_hat = reg.coef_ * np.arange(self.p.reg_len) + reg.intercept_
+            error = np.linalg.norm(y - y_hat)
+            slope = reg.coef_[0]
+
+            # normalized lines
+            self.lines.error[0] = error
+            self.lines.slope[0] = slope
 
 
 class ReedStrategy(bt.Strategy):
@@ -54,7 +54,8 @@ class ReedStrategy(bt.Strategy):
         self.stop_long = None
 
         # init indicators
-        self.reed = ReedScore()
+        # self.reed = ReedScore()  # two-month-long regression
+        # self.ama = bt.indicators.AdaptiveMovingAverage(period=300, fast=6, slow=300)
 
     def log(self, msg, force_print=False):
 
@@ -65,7 +66,7 @@ class ReedStrategy(bt.Strategy):
 
     def notify_order(self, order):
 
-        # order was submitted/accepted
+        # order was submitted/accepted 
         if order.status in [order.Submitted, order.Accepted]:
             return
 
@@ -88,8 +89,9 @@ class ReedStrategy(bt.Strategy):
 
     def next(self):
         pass
+
         # if not self.position:
-        #     if self.data[0] > self.data[-1638]:
+        #     if self.data[0] > self.ama[0] and self.reed.slope[0] > 0.05 and self.reed.score[0] < 40:
         #         self.order = self.buy()
         #         self.stop_long = self.stop[0]
 

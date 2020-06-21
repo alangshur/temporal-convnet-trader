@@ -1,5 +1,5 @@
 
 # file types
 *__pycache__/
-*.csva
+*.csv
 *.ipynb_checkpoints/

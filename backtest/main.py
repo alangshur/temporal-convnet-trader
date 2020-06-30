@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     # load historical data
     cerebro.adddata(bt.feeds.GenericCSVData(
-        dataname='../data/UNI/SPY-1d.csv',
+        dataname='../data/day/SPY-1d.csv',
         fromdate=datetime(2005, 1, 1),
         todate=datetime(2018, 12, 31),
         dtformat='%Y-%m-%d',

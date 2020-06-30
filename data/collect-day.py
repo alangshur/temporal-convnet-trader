@@ -81,7 +81,7 @@ def collect_data(ticker, ticker_class, start_year='2005', end_year='2020'):
 if __name__ == '__main__':
 
     # specify ticker targets
-    target_tickers = ['CAT', 'CMI']
+    target_tickers = ['PG', 'AAPL']
     ticker_class = 'day'
 
     # iteratively collet ticker data

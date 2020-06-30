@@ -56,6 +56,7 @@ class ReedStrategy(bt.Strategy):
         # init indicators
         # self.reed = ReedScore()  # two-month-long regression
         # self.ama = bt.indicators.AdaptiveMovingAverage(period=300, fast=6, slow=300)
+        self.dir = False
 
     def log(self, msg, force_print=False):
 
@@ -88,7 +89,14 @@ class ReedStrategy(bt.Strategy):
         self.log('Trade Result: {:,.3f}'.format(trade.pnl))
 
     def next(self):
-        pass
+        if self.data[0] > self.data[-182] and not self.dir:
+            self.close()
+            self.buy()
+            self.dir = True
+        elif self.dir: 
+            self.close()
+            self.sell()
+            self.dir = False
 
         # if not self.position:
         #     if self.data[0] > self.ama[0] and self.reed.slope[0] > 0.05 and self.reed.score[0] < 40:
